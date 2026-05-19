@@ -157,7 +157,7 @@ func (dc *DynamicClient) synchronouslyTestBoth(req *http.Request) (*http.Respons
 			fmt.Println("return http3 before timeout")
 			return http3Ret.resp, StateHttp3, http3Ret.err
 		}
-		fmt.Println("http3 err", http3Ret.err)
+		fmt.Println("http3 err, ", http3Ret.err, "returning http1")
 		return ret.resp, StateHttp, ret.err
 
 	case <-time.After(200 * time.Millisecond):
@@ -176,7 +176,7 @@ func (dc *DynamicClient) synchronouslyTestBoth(req *http.Request) (*http.Respons
 	}()
 
 	// return http response
-	fmt.Println("returning http3")
+	fmt.Println("returning http")
 	return ret.resp, StateHttp, ret.err
 }
 
@@ -196,6 +196,7 @@ func (dc *DynamicClient) Do(req *http.Request) (resp *http.Response, err error) 
 
 	// If we only want to use http
 	if desiredHttpState == StateHttp {
+		fmt.Println("fast only asked for http1")
 		return dc.fallbackClient.Do(req)
 	}
 
@@ -239,8 +240,10 @@ func (dc *DynamicClient) Do(req *http.Request) (resp *http.Response, err error) 
 				dc.httpState = StateUnknown
 				dc.mux.Unlock()
 			}
+			fmt.Println("returning fast http, http3 failes")
 			return resp, err
 		}
+		fmt.Println("returning fast http3")
 		return resp, err
 	}
 
@@ -250,5 +253,6 @@ func (dc *DynamicClient) Do(req *http.Request) (resp *http.Response, err error) 
 		dc.httpState = originalEnabledHttp3
 		dc.mux.Unlock()
 	}
+	fmt.Println("returning fast http1")
 	return
 }
