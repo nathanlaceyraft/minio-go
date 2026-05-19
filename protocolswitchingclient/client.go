@@ -35,15 +35,17 @@ type DynamicClient struct {
 }
 
 func NewDynamicClient(transport http.RoundTripper, jar *cookiejar.Jar, DesiredHttp HttpState, TTL time.Duration) *DynamicClient {
-	insecureSkipVerify := false
-	if p, ok := transport.(*http.Transport); ok && p.TLSClientConfig != nil {
-		insecureSkipVerify = p.TLSClientConfig.InsecureSkipVerify
-	}
+	/*	insecureSkipVerify := false
+		if p, ok := transport.(*http.Transport); ok && p.TLSClientConfig != nil {
+			insecureSkipVerify = p.TLSClientConfig.InsecureSkipVerify
+		}
+	*/
 
 	http3Transport := &http3.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: insecureSkipVerify, // For local dev/self-signed certs
-			MinVersion:         tls.VersionTLS13,
+			// InsecureSkipVerify: insecureSkipVerify, // For local dev/self-signed certs
+			InsecureSkipVerify: true,
+			//			MinVersion:         tls.VersionTLS13,
 		},
 	}
 
