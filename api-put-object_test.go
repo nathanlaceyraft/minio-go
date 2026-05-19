@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/minio/minio-go/v7/pkg/encrypt"
+	"github.com/nathanlaceyraft/minio-go/v7/pkg/encrypt"
 )
 
 func TestPutObjectOptionsValidate(t *testing.T) {

@@ -48,8 +48,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/nathanlaceyraft/minio-go/v7"
+	"github.com/nathanlaceyraft/minio-go/v7/pkg/credentials"
 )
 
 func main() {
