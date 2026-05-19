@@ -40,12 +40,13 @@ import (
 
 	"github.com/dustin/go-humanize"
 	md5simd "github.com/minio/md5-simd"
-	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/minio/minio-go/v7/pkg/kvcache"
-	"github.com/minio/minio-go/v7/pkg/s3utils"
-	"github.com/minio/minio-go/v7/pkg/set"
-	"github.com/minio/minio-go/v7/pkg/signer"
-	"github.com/minio/minio-go/v7/pkg/singleflight"
+	"github.com/nathanlaceyraft/minio-go/v7/pkg/credentials"
+	"github.com/nathanlaceyraft/minio-go/v7/pkg/kvcache"
+	"github.com/nathanlaceyraft/minio-go/v7/pkg/s3utils"
+	"github.com/nathanlaceyraft/minio-go/v7/pkg/set"
+	"github.com/nathanlaceyraft/minio-go/v7/pkg/signer"
+	"github.com/nathanlaceyraft/minio-go/v7/pkg/singleflight"
+	"github.com/nathanlaceyraft/minio-go/v7/protocolswitchingclient"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -72,7 +73,8 @@ type Client struct {
 	secure bool
 
 	// Needs allocation.
-	httpClient         *http.Client
+	//httpClient *http.Client
+	dynamicClient      *protocolswitchingclient.DynamicClient
 	httpTrace          *httptrace.ClientTrace
 	bucketLocCache     *kvcache.Cache[string, string]
 	bucketSessionCache *kvcache.Cache[string, credentials.Value]
@@ -273,13 +275,21 @@ func privateNew(endpoint string, opts *Options) (*Client, error) {
 	clnt.httpTrace = opts.Trace
 
 	// Instantiate http client and bucket location cache.
-	clnt.httpClient = &http.Client{
+	/*clnt.httpClient = &http.Client{
 		Jar:       jar,
 		Transport: transport,
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
+	}*/
+
+	state := protocolswitchingclient.StateHttp
+
+	if endpointURL.Scheme == "https" {
+		state = protocolswitchingclient.StateHttp3
 	}
+
+	clnt.dynamicClient = protocolswitchingclient.NewDynamicClient(transport, jar, protocolswitchingclient.HttpState(state), time.Hour)
 
 	// Sets custom region, if region is empty bucket location cache is used automatically.
 	if opts.Region == "" {
@@ -606,7 +616,8 @@ func (c *Client) do(req *http.Request) (resp *http.Response, err error) {
 		}
 	}()
 
-	resp, err = c.httpClient.Do(req)
+	resp, err = c.dynamicClient.Do(req)
+	//resp, err = c.httpClient.Do(req)
 	if err != nil {
 		// Handle this specifically for now until future Golang versions fix this issue properly.
 		if urlErr, ok := err.(*url.Error); ok {
@@ -1132,7 +1143,8 @@ func (c *Client) isVirtualHostStyleRequest(url url.URL, bucketName string) bool 
 
 // CredContext returns the context for fetching credentials
 func (c *Client) CredContext() *credentials.CredContext {
-	httpClient := c.httpClient
+	httpClient := c.dynamicClient.GetHttpClient()
+	//httpClient := c.httpClient
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
