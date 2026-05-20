@@ -111,7 +111,11 @@ func TestTLSServer(t *testing.T) {
 	}
 	time.Sleep(time.Second)
 
-	dynamClient := NewDynamicClient(tr, nil, StateHttp3, 30*time.Second)
+	CheckRedirect := func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	dynamClient := NewDynamicClient(tr, nil, CheckRedirect, StateHttp3, 30*time.Second)
 
 	req, err := http.NewRequest("GET", "https://localhost:4433/", nil)
 	if err != nil {

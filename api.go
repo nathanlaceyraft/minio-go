@@ -284,12 +284,15 @@ func privateNew(endpoint string, opts *Options) (*Client, error) {
 	}*/
 
 	state := protocolswitchingclient.StateHttp
+	CheckRedirect := func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 
 	if endpointURL.Scheme == "https" {
 		state = protocolswitchingclient.StateHttp3
 	}
 
-	clnt.dynamicClient = protocolswitchingclient.NewDynamicClient(transport, jar, protocolswitchingclient.HttpState(state), time.Second*40)
+	clnt.dynamicClient = protocolswitchingclient.NewDynamicClient(transport, jar, CheckRedirect, protocolswitchingclient.HttpState(state), time.Second*40)
 
 	// Sets custom region, if region is empty bucket location cache is used automatically.
 	if opts.Region == "" {
