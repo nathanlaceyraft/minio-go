@@ -34,45 +34,47 @@ type DynamicClient struct {
 	fallbackClient   *http.Client
 }
 
-func NewDynamicClient(transport http.RoundTripper, jar *cookiejar.Jar, DesiredHttp HttpState, TTL time.Duration) *DynamicClient {
-	/*	insecureSkipVerify := false
-		if p, ok := transport.(*http.Transport); ok && p.TLSClientConfig != nil {
-			insecureSkipVerify = p.TLSClientConfig.InsecureSkipVerify
-		}
-	*/
+func NewDynamicClient(transport http.RoundTripper, jar *cookiejar.Jar, CheckRedirect func(_ *http.Request, _ []*http.Request) error, DesiredHttp HttpState, TTL time.Duration) *DynamicClient {
+	insecureSkipVerify := false
+	if p, ok := transport.(*http.Transport); ok && p.TLSClientConfig != nil {
+		insecureSkipVerify = p.TLSClientConfig.InsecureSkipVerify
+	}
 
 	http3Transport := &http3.Transport{
 		TLSClientConfig: &tls.Config{
-			// InsecureSkipVerify: insecureSkipVerify, // For local dev/self-signed certs
-			InsecureSkipVerify: true,
-			//			MinVersion:         tls.VersionTLS13,
+			InsecureSkipVerify: insecureSkipVerify, // For local dev/self-signed certs
+			MinVersion:         tls.VersionTLS13,
 		},
 	}
 
 	// Create HTTP client using the HTTP/3 transport
 	http3Client := &http.Client{
-		Transport: http3Transport,
-		Timeout:   10 * time.Second,
+		Transport:     http3Transport,
+		Timeout:       10 * time.Second,
+		CheckRedirect: CheckRedirect,
 	}
 	if jar != nil {
 		// Create HTTP client using the HTTP/2 transport
 		http3Client = &http.Client{
-			Transport: http3Transport,
-			Timeout:   10 * time.Second,
-			Jar:       jar,
+			Transport:     http3Transport,
+			Timeout:       10 * time.Second,
+			Jar:           jar,
+			CheckRedirect: CheckRedirect,
 		}
 	}
 
 	fallbackClient := &http.Client{
-		Transport: transport,
-		Timeout:   20 * time.Second,
+		Transport:     transport,
+		Timeout:       20 * time.Second,
+		CheckRedirect: CheckRedirect,
 	}
 	if jar != nil {
 		// Create HTTP client using the HTTP/2 transport
 		fallbackClient = &http.Client{
-			Transport: transport,
-			Timeout:   20 * time.Second,
-			Jar:       jar,
+			Transport:     transport,
+			Timeout:       20 * time.Second,
+			Jar:           jar,
+			CheckRedirect: CheckRedirect,
 		}
 	}
 
