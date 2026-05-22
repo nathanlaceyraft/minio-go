@@ -76,6 +76,7 @@ func generateSelfSignedCert() (tlsCert string, tlsKey string, err error) {
 }
 
 func TestTLSServer(t *testing.T) {
+	createErrMsg := "unable to create new request %s"
 	tlsCert, tlsKey, err := generateSelfSignedCert()
 	if err != nil {
 		t.Fatalf("Failed to generate self-signed certificate: %v", err)
@@ -115,35 +116,43 @@ func TestTLSServer(t *testing.T) {
 		return http.ErrUseLastResponse
 	}
 
-	dynamClient := NewDynamicClient(tr, nil, CheckRedirect, StateHttp3, 30*time.Second)
+	dynamClient := NewDynamicClient(tr, nil, CheckRedirect, StateHttp3, 10*time.Second)
 
-	req, err := http.NewRequest("GET", "https://localhost:4433/", nil)
+	req, err := http.NewRequest("GET", "https://127.0.0.1:4433/", nil)
 	if err != nil {
-		t.Fatalf("unable to create new request %s", err)
+		t.Fatalf(createErrMsg, err)
 	}
 	http3response := "Hello from HTTP/3.0!\n"
 	httpresponse := "Hello from HTTP/1.1!\n"
-
-	Call(req, dynamClient, http3response, t)
 
 	//Test 'fast pass', starting with http3
 	Call(req, dynamClient, http3response, t)
 
 	dynamClient.Reset()
 	//Test faster http3 connection
-	req, err = http.NewRequest("GET", "https://localhost:4432/", nil)
+	req, err = http.NewRequest("GET", "https://127.0.0.1:4432/", nil)
 	if err != nil {
-		t.Fatalf("unable to create new request %s", err)
+		t.Fatalf(createErrMsg, err)
 	}
 	Call(req, dynamClient, http3response, t)
 
 	//Test dropped http3 connection
-	req, err = http.NewRequest("GET", "https://localhost:4431/", nil)
+	req, err = http.NewRequest("GET", "https://127.0.0.1:4431/", nil)
 	if err != nil {
-		t.Fatalf("unable to create new request %s", err)
+		t.Fatalf(createErrMsg, err)
 	}
+
+	//This one will try http3, fail, and try http
 	Call(req, dynamClient, httpresponse, t)
+
+	//This will try both, and set to http 'fast' if http3 doesn't work again
 	Call(req, dynamClient, httpresponse, t)
+
+	time.Sleep(11 * time.Second)
+
+	//This will only use http 'fast' path
+	Call(req, dynamClient, httpresponse, t)
+	dynamClient.Close()
 }
 
 // allows us to start web servers supporting different ports and http3/1 variations
@@ -156,8 +165,8 @@ func StartServer(port int, tlsCert, tlsKey string, handler func(w http.ResponseW
 	// ----- HTTP/1.1 & HTTP/2 over TCP -----
 	// Go's standard library automatically supports HTTP/1.1 and HTTP/2 over TLS
 	tcpSrv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port), // TCP port for HTTPS
-		Handler: mux,                      // Use the multiplexer defined above
+		Addr:    fmt.Sprintf("127.0.0.1:%d", port), // TCP port for HTTPS
+		Handler: mux,                               // Use the multiplexer defined above
 		TLSConfig: &tls.Config{
 			MinVersion: tls.VersionTLS13, // HTTP/3 requires TLS 1.3; use same for parity
 		},
