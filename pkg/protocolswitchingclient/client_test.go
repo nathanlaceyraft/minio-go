@@ -20,6 +20,8 @@ import (
 	"github.com/quic-go/quic-go/http3"
 )
 
+var fail = "fail"
+
 // create a self signed cert for unit test
 func generateSelfSignedCert() (tlsCert string, tlsKey string, err error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -118,7 +120,7 @@ func TestTLSServer(t *testing.T) {
 
 	dynamClient := NewDynamicClient(tr, nil, CheckRedirect, StateHttp3, 10*time.Second)
 
-	req, err := http.NewRequest("GET", "https://127.0.0.1:4433/", nil)
+	reqhttp3, err := http.NewRequest("GET", "https://127.0.0.1:4433/", nil)
 	if err != nil {
 		t.Fatalf(createErrMsg, err)
 	}
@@ -126,32 +128,32 @@ func TestTLSServer(t *testing.T) {
 	httpresponse := "Hello from HTTP/1.1!\n"
 
 	//Test 'fast pass', starting with http3
-	Call(req, dynamClient, http3response, t)
+	Call(reqhttp3, dynamClient, http3response, t)
 
 	dynamClient.Reset()
 	//Test faster http3 connection
-	req, err = http.NewRequest("GET", "https://127.0.0.1:4432/", nil)
+	reqhttp3, err = http.NewRequest("GET", "https://127.0.0.1:4432/", nil)
 	if err != nil {
 		t.Fatalf(createErrMsg, err)
 	}
-	Call(req, dynamClient, http3response, t)
+	Call(reqhttp3, dynamClient, http3response, t)
 
 	//Test dropped http3 connection
-	req, err = http.NewRequest("GET", "https://127.0.0.1:4431/", nil)
+	reqhttp1, err := http.NewRequest("GET", "https://127.0.0.1:4431/", nil)
 	if err != nil {
 		t.Fatalf(createErrMsg, err)
 	}
 
-	//This one will try http3, fail, and try http
-	Call(req, dynamClient, httpresponse, t)
+	//This one will try http3, fail
+	Call(reqhttp1, dynamClient, fail, t)
 
 	//This will try both, and set to http 'fast' if http3 doesn't work again
-	Call(req, dynamClient, httpresponse, t)
+	Call(reqhttp1, dynamClient, httpresponse, t)
 
 	time.Sleep(11 * time.Second)
 
-	//This will only use http 'fast' path
-	Call(req, dynamClient, httpresponse, t)
+	//This will reset mode, and retry http3
+	Call(reqhttp3, dynamClient, http3response, t)
 	dynamClient.Close()
 }
 
@@ -217,6 +219,9 @@ func Call(req *http.Request, dynamClient *DynamicClient, expected string, t *tes
 	resp, err := dynamClient.Do(req)
 
 	if err != nil {
+		if expected == fail {
+			return
+		}
 		t.Fatalf("Failed to make request: %v", err)
 	}
 

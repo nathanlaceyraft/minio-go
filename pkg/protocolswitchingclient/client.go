@@ -98,6 +98,12 @@ func (dc *DynamicClient) GetHttpClient() *http.Client {
 	return dc.fallbackClient
 }
 
+var http1once sync.Once
+
+func http1oncelog() {
+	fmt.Println("Only HTTP1 requested")
+}
+
 // Do based on desired http protocol, try http3 and fallback to http if that fails
 // only do both protocals when trying to figure out which you can use, can ove onto 'fast' path
 // NewDynamicClient makes sure all pointers are inited
@@ -115,6 +121,7 @@ func (dc *DynamicClient) Do(req *http.Request) (resp *http.Response, err error) 
 
 	// If we only want to use http
 	if desiredHttpState == StateHttp1 {
+		http1once.Do(http1oncelog)
 		return dc.fallbackClient.Do(req)
 	}
 
@@ -133,24 +140,14 @@ func (dc *DynamicClient) Do(req *http.Request) (resp *http.Response, err error) 
 			dc.mux.Lock()
 			dc.httpState = StateHttp1
 			dc.mux.Unlock()
-			resp, err := dc.fallbackClient.Do(req)
-			// both http and http3 failed
-			// try to reconnect using http3 next time,
-			// if http3 fails and http works a second time, we'll switch to http
-			if err == nil {
-				dc.mux.Lock()
-				dc.httpState = StateHttp3
-				dc.mux.Unlock()
-			}
 			log.Println("HTTP3 failed, switchingto HTTP1")
-			dc.mux.Lock()
-			dc.httpState = StateHttp1
-			dc.mux.Unlock()
 			return resp, err
 		}
+		log.Println("HTTP3 succeeded")
 		return resp, err
 	}
 
+	log.Println("Fast HTTP1 path")
 	//server is currently only excepting http requests, don't waste time on http3
 	resp, err = dc.fallbackClient.Do(req)
 	return
