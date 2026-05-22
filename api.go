@@ -42,11 +42,11 @@ import (
 	md5simd "github.com/minio/md5-simd"
 	"github.com/nathanlaceyraft/minio-go/v7/pkg/credentials"
 	"github.com/nathanlaceyraft/minio-go/v7/pkg/kvcache"
+	"github.com/nathanlaceyraft/minio-go/v7/pkg/protocolswitchingclient"
 	"github.com/nathanlaceyraft/minio-go/v7/pkg/s3utils"
 	"github.com/nathanlaceyraft/minio-go/v7/pkg/set"
 	"github.com/nathanlaceyraft/minio-go/v7/pkg/signer"
 	"github.com/nathanlaceyraft/minio-go/v7/pkg/singleflight"
-	"github.com/nathanlaceyraft/minio-go/v7/protocolswitchingclient"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -283,7 +283,7 @@ func privateNew(endpoint string, opts *Options) (*Client, error) {
 		},
 	}*/
 
-	state := protocolswitchingclient.StateHttp
+	state := protocolswitchingclient.StateHttp1
 	CheckRedirect := func(_ *http.Request, _ []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
